@@ -1,104 +1,74 @@
-# Copyright 2021 D-Wave Systems Inc.
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
+import dimod              #core library of D-Wave Ocean SDK
+from dwave.system import DWaveSampler, EmbeddingComposite
+from dwave.system import LeapHybridCQMSampler
+import utilities          #stock data handling utilities
+from dimod import ConstrainedQuadraticModel
+from dimod import Binary
 
-# TODO: Import any required packages here
-
-
-import utilities
-
-
-def define_variables(stockcodes):
-    """Define the variables to be used for the CQM.
-    Args:
-        stockcodes (list): List of stocks under consideration
-    
-    Returns:
-        stocks (list): 
-            List of variables named 's_{stk}' for each stock stk in stockcodes, where stk is replaced by the stock code.
-    """
-
-    # TODO: Define your list of variables and call it stocks
-    ## Hint: Remember to import the required package at the top of the file for Binary variables
-
+def bin_variables(tickers):
+   
+    #define list of binary stock variables
+    stocks = [Binary(f's_{stk}') for stk in tickers]
     return stocks
 
-def define_cqm(stocks, num_stocks_to_buy, returns):
-    """Define a CQM for the exercise. 
-    Requirements:
-        Objective: Maximize returns
-        Constraints:
-            - Choose exactly num_stocks_to_buy stocks
-            
-    Args:
-        stocks (list):
-            List of variables named 's_{stk}' for each stock in stockcodes
-        num_stocks_to_buy (int): Number of stocks to purchase
-        returns (list):
-            List of average monthly returns for each stock in stocks
-                where returns[i] is the average returns for stocks[i]
-
-        
-    Returns:
-        cqm (ConstrainedQuadraticModel)
-    """
-
-    # TODO: Initialize the ConstrainedQuadraticModel called cqm
-    ## Hint: Remember to import the required package at the top of the file for ConstrainedQuadraticModels
+def build_cqm(stocks, num_stocks_to_buy, budget, returns):
+    cqm = ConstrainedQuadraticModel()
     
+    #constraint: number of stocks to buy
+    cqm.add_constraint(sum(bin_variables) == num_stocks_to_buy, label='choose k stocks')
 
-    # TODO: Add a constraint to choose exactly num_stocks_to_buy stocks
-    ## Important: Use the label 'choose k stocks', this label is case sensitive
+    #constraint: Sum of (price * stock_variable) <= budget
+    cqm.add_constraint(sum(prices[i] * stocks[i] for i in range(len(stocks))) <= budget, label='budget_limitation')
 
+    #return component - minimize the negative to maximize
+    return_obj = sum(r * s for r, s in zip(returns, stocks))
 
-    # TODO: Add an objective function maximize returns
-    ## Hint: Use the information in returns, and remember to convert to minimization
-
+    #risk component - use variance and covariance to approximate risk
+    risk_obj = sum(variance[i][j] * stocks[i] * stocks[j] 
+               for i in range(len(stocks)) 
+               for j in range(len(stocks)))
+    
+    #combine return and risk terms
+    #alpha scales the importance of the risk
+    alpha = 0.5 
+    cqm.set_objective(alpha * risk_obj - return_obj)
 
     return cqm
 
 def sample_cqm(cqm):
 
-    # TODO: Define your sampler as LeapHybridCQMSampler
-    ## Hint: Remember to import the required package at the top of the file
+   #define sampler - hybrid sampler uses a combination of CPUs or GPUs and the QPU to solve the problem
+   sampler = LeapHybridCQMSampler()
+   
+   #sample the cqm and store the result - the model returns multiple solutions
+   #each solution includes: values for binary variables, energy, constraint feasibility
+   sampleset = sampler.sample_cqm(cqm, label='Portfolio Optimization 1')
 
-
-    # TODO: Sample the ConstrainedQuadraticModel cqm and store the result in sampleset
-
-
-    return sampleset
+   return sampleset
 
 
 if __name__ == '__main__':
 
-    # 10 stocks used in this program
-    stockcodes=["T", "SFL", "PFE", "XOM", "MO", "VZ", "IBM", "TSLA", "GILD", "GE"]
+    # 10 sample stocks 
+    tickers=["T", "SFL", "PFE", "XOM", "MO", "VZ", "IBM", "TSLA", "GILD", "GE"]
 
-    # Compute relevant statistics like price, average returns, and covariance
+    #compute price, average returns, and covariance
     price, returns, variance = utilities.get_stock_info()
 
-    # Number of stocks to buy
+    #number of stocks to buy
     num_stocks_to_buy = 2
 
-    # Add binary variables for stocks
-    stocks = define_variables(stockcodes)
+    budget = 100
 
-    # Build CQM
-    cqm = define_cqm(stocks, num_stocks_to_buy, returns)
+    #add binary variables for stocks
+    stocks = bin_variables(tickers)
 
-    # Run CQM on hybrid solver
+    #build CQM
+    cqm = build_cqm(stocks, num_stocks_to_buy, returns)
+
+    #run CQM on hybrid solver
     sampleset = sample_cqm(cqm)
     
-    # Process and print solution
+    #process and print solution
     print("\nPart 1 solution:\n")
     utilities.process_sampleset(sampleset, stockcodes)
