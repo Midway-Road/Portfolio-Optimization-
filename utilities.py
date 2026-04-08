@@ -2,21 +2,31 @@ import csv
 import numpy as np
 import pandas as pd
 #Copied from D-Wave Systems portfolio optimization training project
+
 # Prepare Stock data from the given csv files
 def get_stock_info(verbose=False):
     """Read in stock returns and price information from CSV."""
-
+    df = pd.read_csv('data/lastprice_data.csv')
+    price = np.array(df.values)
+    
     # Read the lastday's closing price from csv file, 
     # and store them in the list, then convert it as numpy array
-    price_read = []
-    with open('data/lastday_closing_price.csv') as f:
-        reader = csv.reader(f)
-        for row in reader:
-            price_read.append(row)
-    price = np.array(price_read[0],dtype=float)
+    # price_read = []
+    # with open('data/lastday_closing_price.csv') as f:
+    #     reader = csv.reader(f)
+    #     for row in reader:
+    #         price_read.append(row)
+    # price = np.array(price_read[0],dtype=float)
 
     # Compute the average monthly returns for each stock
-    df_monthreturn = pd.read_csv("data/monthly_returns.csv", index_col='Date')
+    # df_monthreturn = pd.read_csv("data/monthly_returns.csv", index_col='Date')
+
+
+
+
+
+
+    df_monthreturn = pd.read_csv("data/returns_data.csv", index_col='Date')
     ave_monthly_returns = df_monthreturn.mean(axis=0)
     returns = list(ave_monthly_returns)
 

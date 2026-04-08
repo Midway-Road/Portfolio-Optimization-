@@ -11,14 +11,14 @@ def bin_variables(tickers):
     stocks = [Binary(f's_{stk}') for stk in tickers]
     return stocks
 
-def build_cqm(stocks, num_stocks_to_buy, budget, returns):
+def build_cqm(stocks, num_stocks_to_buy, budget, returns, price):
     cqm = ConstrainedQuadraticModel()
     
     #constraint: number of stocks to buy
-    cqm.add_constraint(sum(bin_variables) == num_stocks_to_buy, label='choose k stocks')
+    cqm.add_constraint(sum(stocks) == num_stocks_to_buy, label='choose k stocks')
 
     #constraint: Sum of (price * stock_variable) <= budget
-    cqm.add_constraint(sum(prices[i] * stocks[i] for i in range(len(stocks))) <= budget, label='budget_limitation')
+    cqm.add_constraint(sum(price[i] * stocks[i] for i in range(len(stocks))) <= budget, label='budget_limitation')
 
     #return component - minimize the negative to maximize
     return_obj = sum(r * s for r, s in zip(returns, stocks))
@@ -56,19 +56,29 @@ if __name__ == '__main__':
     price, returns, variance = utilities.get_stock_info()
 
     #number of stocks to buy
-    num_stocks_to_buy = 2
+    num_stocks_to_buy = 5
 
     budget = 100
 
     #add binary variables for stocks
     stocks = bin_variables(tickers)
-
+    
     #build CQM
-    cqm = build_cqm(stocks, num_stocks_to_buy, returns)
+    cqm = build_cqm(stocks, num_stocks_to_buy, budget, returns, price)
 
     #run CQM on hybrid solver
     sampleset = sample_cqm(cqm)
     
     #process and print solution
     print("\nPart 1 solution:\n")
-    utilities.process_sampleset(sampleset, stockcodes)
+    utilities.process_sampleset(sampleset, tickers)
+
+
+    if 'embedding_context' in sampleset.info:
+      embedding = sampleset.info['embedding_context']['embedding']
+      print(f"Number of logical variables: {len(embedding.keys())}")
+      print(f"Number of physical qubits used in embedding: {sum(len(chain) for chain in embedding.values())}")
+    else:
+    # Handle the case where no embedding occurred
+      print("Warning: No embedding context found.")
+
