@@ -15,29 +15,51 @@ def get_tickers(verbose=False):
 
 
 def get_stock_info(verbose=True):
-    """Read in stock returns and price information from CSV."""
-    df = pd.read_csv('data/lastprice_data.csv')
-    print(df.head())
-    price = np.array(df['2023-12-29'].values)
-    #print(price)
-    
-    df_monthreturn = pd.read_csv("data/returns_data.csv", index_col='Date')
-    ave_monthly_returns = df_monthreturn.mean(axis=0)
-    returns = list(ave_monthly_returns)
+    # Read in stock returns and price information from CSV
+    df_price = pd.read_csv('data/lastprice_data.csv')
+    print(df_price.head())
 
-    # Compute the variance from the monthly returns
-    variance = df_monthreturn.cov().values.tolist()
+    ############### calculate mean returns #############################
+    df_dailyreturn = pd.read_csv('data/returns_data.csv', index_col='Date')
+    avg_daily_returns = df_dailyreturn.mean(axis=0)
+    annual_returns = avg_daily_returns * 252
+    returns = list(annual_returns)
+
+    ############# calculate variance ###################################
+    covariance = (df_dailyreturn.cov() * 252).values.tolist()
+    
+    ############ calculate coskew tensor ###############################
+    returns_array = df_dailyreturn.to_numpy()
+    print(returns_array)
+    # Standardize the returns: (R - mu) / sigma 
+    mu = np.mean(returns_array, axis=0)
+    print("MEAN RETURNS ARRAY")
+    print(mu)
+    sigma = np.std(returns_array, axis=0)
+    print("SIGMA ARRAY")  
+    print(sigma)
+    z_scores = (returns_array - mu) / sigma
+  
+    # Calculate the Coskewness Tensor 
+    # Using Einstein Summation:
+    # t is day, i, j, k are individual stocks
+    # Multiply z_i * z_j * z_k for every day and average. 
+    coskew_tensor = np.einsum('ti,tj,tk->ijk', z_scores, z_scores, z_scores) / returns_array.shape[0]
+
+    print(f"Tensor Shape: {coskew_tensor.shape}")
+    # Accessing S(X, Y, Z) for stocks 0, 1, and 2:
+    print(f"Coskew (0,1,2): {coskew_tensor[0, 1, 2]:.4f}")  
 
     if verbose:
         print("Data Check")
-        print(f"Length of Price Array: {len(price)}")
+        print(f"Length of Price Array: {len(df_price)}")
         print("Monthly return(the first 5 lines):")
-        print(df_monthreturn.head(5))
+        print(df_dailyreturn.head(5))
         print("Average monthly return:")
         print(f"Length of monthly returns: {len(returns)}")
         #print(returns)
 
-    return price, returns, variance
+    return df_price, returns, covariance, coskew_tensor
 
 # Function to process samples and print the best feasible solution found
 def process_sampleset(sampleset, tickers):
