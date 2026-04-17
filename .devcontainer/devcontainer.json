@@ -3,6 +3,12 @@
 {
 	"name": "Ocean Development Environment",
 
+	"hostRequirements": {
+  		 "cpus": 8,
+   		 "memory": "32gb",
+   		 "storage": "32gb"
+	}
+
 	// python 3.11 on debian, with latest Ocean and optional packages
 	// source repo: https://github.com/dwavesystems/ocean-dev-docker
 	"image": "docker.io/dwavesys/ocean-dev:latest",
