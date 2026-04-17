@@ -63,7 +63,7 @@ def portfolio_opt(stocks_names: numpy.typing.ArrayLike, num_stocks_to_buy: int, 
       
     #combine return and risk terms
     #alpha scales the importance of the risk
-    alpha = 0.01
+    alpha = 0.1
     beta  = 1 - alpha
  
     model.minimize(beta * risk_obj - alpha*return_obj)
@@ -99,6 +99,15 @@ def process_nls_results(model, tickers):
     print(df_results)
     
     df_results.to_csv("portfolio_data.csv", index=False)
+
+
+    num_vars = len(list(model.iter_decisions()))
+    num_constraints = len(list(model.iter_constraints()))
+    total_nodes = model.num_nodes()
+
+    print(f"Decision Variable Symbols: {num_vars}")
+    print(f"Total Constraints: {num_constraints}")
+    print(f"Total DAG Nodes: {total_nodes}")
 
 
 if __name__ == '__main__':
