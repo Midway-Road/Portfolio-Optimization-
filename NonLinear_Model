@@ -2,32 +2,46 @@ import dimod              #core library of D-Wave Ocean SDK
 from dwave.system import DWaveSampler, EmbeddingComposite
 from dwave.system import LeapHybridNLSampler
 import utilities          #stock data handling utilities
+import CQM_Model
 from dimod import Binary
 from dimod import Integer
-import numpy
+import numpy as np
 import pandas as pd
 from dwave.optimization.model import ArraySymbol, Model
 import numpy.typing
 import typing
+from dwave.system import LeapHybridCQMSampler
+from dimod import ConstrainedQuadraticModel
+from itertools import combinations_with_replacement
 
-def portfolio_opt(stocks_names: numpy.typing.ArrayLike, num_stocks_to_buy: int, budget: float, returns: numpy.typing.ArrayLike, 
-                  price: numpy.typing.ArrayLike, covariance: numpy.typing.ArrayLike, coskewness: numpy.typing.ArrayLike) -> Model:
+
+def portfolio_opt(stocks_names: numpy.typing.ArrayLike, num_stocks_to_buy: int, budget: float, returns_in: numpy.typing.ArrayLike, 
+                  price_in: numpy.typing.ArrayLike, covariance_in: numpy.typing.ArrayLike, coskewness_in: numpy.typing.ArrayLike) -> Model:
  
     # Construct the model
     model = Model()
+    returns_arr = np.array(returns_in, dtype ='float32')
+    price_arr = np.array(price_in, dtype ='float32')
+    covariance_arr = np.array(covariance_in, dtype ='float32')
+    
 
     # Convert inputs to model constants
-    returns = model.constant(returns)
-    price = model.constant(price)
-    covariance = model.constant(covariance)
-    coskewness = model.constant(coskewness)
+    returns = model.constant(returns_arr)
+    price = model.constant(price_arr)
+    covariance = model.constant(covariance_arr)
+    
+    # Make coskewness array a constant of the model
+    if coskewness_in is not None:
+      coskewness_arr = np.array(coskewness_in, dtype = 'float32')
+      coskewness = model.constant(coskewness_arr)
+      
     budget = model.constant(budget)
     num_stocks_to_buy = model.constant(num_stocks_to_buy)
 
     # Define decision variables
     stocks = model.binary(len(stocks_names))
     #set minimum and maximum number of shares that can be assigned to each stock
-    shares = model.integer(len(stocks_names), lower_bound = 0, upper_bound=100) 
+    shares = model.integer(len(stocks_names), lower_bound = 0, upper_bound=10000) 
 
     # Add model constraints
      #Full allocation constraint
@@ -35,20 +49,30 @@ def portfolio_opt(stocks_names: numpy.typing.ArrayLike, num_stocks_to_buy: int, 
 
     #BudgetConstraint
     _= model.add_constraint(sum(price[i] * shares[i]  for i in range(len(stocks_names))) <= budget)
-
-    #coskew constraint
-    _=model.add_constraint(sum(coskewness[i][j][k] * (price[i] * shares[i]/budget) * (price[j] * shares[j]/budget) * (price[k] * shares[k]/budget)
-               for i in range(len(stocks_names)) 
-               for j in range(i,len(stocks_names))
-               for k in range(j,len(stocks_names))) >= -0.15)
     
+    # add coskew constraint, don't add if the stocks list is too large
+    if len(stocks_names) <= 100:
+      coskewness_matrix = (
+      price_arr[:, None, None] * 
+      price_arr[None, :, None] * 
+      price_arr[None, None, :] * 
+      coskewness_arr
+      ) / budget
+
+      n=len(stocks_names)
+      indices = np.array(list(combinations_with_replacement(range(n), 3)))
+      i, j, k = indices[:, 0], indices[:, 1], indices[:, 2]
+      risk_weights_3rd = coskewness_matrix[i, j, k]
+      skew_constraint = (risk_weights_3rd * (shares[i] * shares[j] * shares[k])).sum()
+      _=model.add_constraint(skew_constraint >= -0.15)
+
     # Cardinality constraint - choose exactly k stocks
     _= model.add_constraint(sum(stocks[i] for i in range(len(stocks_names))) == num_stocks_to_buy)
 
-    # Constrain the number of shares to at least 10 if a stock is selected, and to 0 if a stock is not selected
+    # Constrain the number of shares to less than 1000 if a stock is selected, and to at least 1 if a stock is selected
     for i in range(len(stocks_names)):
       # Upper Bound: shares[i] must be 0 if stocks[i] is 0
-      model.add_constraint(shares[i] <= 100 * stocks[i])
+      model.add_constraint(shares[i] <= 10000 * stocks[i])
       # Lower Bound: shares[i] must be at least 1 if stocks[i] is 1
       model.add_constraint(shares[i] >= 1 * stocks[i])
 
@@ -57,16 +81,19 @@ def portfolio_opt(stocks_names: numpy.typing.ArrayLike, num_stocks_to_buy: int, 
     return_obj = sum(r * s1  for r, s1 in zip(returns, shares))
 
     # Risk component - use variance and covariance to approximate risk
-    risk_obj = sum(covariance[i][j] * (price[i] * shares[i])/budget * (price[j] * shares[j])/budget
-               for i in range(len(stocks_names)) 
-               for j in range(len(stocks_names)))
-      
+    risk_matrix = (price_arr[:, None] * covariance_arr * price_arr)/budget
+    i, j = np.triu_indices(len(stocks_names), k=0)
+    risk_weights = risk_matrix[i, j] 
+    risk_obj = (risk_weights * (shares[i] * shares[j])).sum()
+
     #combine return and risk terms
-    #alpha scales the importance of the risk
+    #alpha scales the importance of the risk, beta scales the importance of the return
     alpha = 0.1
     beta  = 1 - alpha
  
     model.minimize(beta * risk_obj - alpha*return_obj)
+
+    # finalize model
     model.lock()
     return model
 
@@ -93,14 +120,19 @@ def process_nls_results(model, tickers):
         
     # Create DataFrame and filter for selected stocks
     df_results = pd.DataFrame(portfolio_data)
-    df_results = df_results[df_results['Buy'] == 1]
+    df_results = df_results[(df_results['Buy'] == 1)& (df_results['Shares'] > 0)]
+    
+    # Write all data into file to be back tested using code in jupyter notebook
+    df_results = df_results[['Stock','Shares']]
+    df_results = df_results.rename(columns = {'Stock':'Ticker', 'Shares':'Weight'})
+    df_results = df_results.merge(df_price, on = 'Ticker')
+    df_results['Cost of Shares'] = df_results['Weight']*df_results['2023-12-29']
+    df_results = df_results.rename(columns = {'Ticker':'Stock'})
+    df_results.to_csv("portfolio_data_NL.csv", index=False)
     
     print("Best solution found:")
     print(df_results)
-    
-    df_results.to_csv("portfolio_data.csv", index=False)
-
-
+   
     num_vars = len(list(model.iter_decisions()))
     num_constraints = len(list(model.iter_constraints()))
     total_nodes = model.num_nodes()
@@ -108,33 +140,82 @@ def process_nls_results(model, tickers):
     print(f"Decision Variable Symbols: {num_vars}")
     print(f"Total Constraints: {num_constraints}")
     print(f"Total DAG Nodes: {total_nodes}")
-
+    
+    return df_results
 
 if __name__ == '__main__':
 
     tickers = utilities.get_tickers()
 
-    #compute price, average returns, and covariance
-    df_price, returns, covariance, coskewness = utilities.get_stock_info()
+    # compute price, average returns, and covariance, coskew
+    # if coskew_compute == True, compute coskewness tensor, otherwise coskewness = None
+    df_price, returns, covariance, coskewness = utilities.get_stock_info(coskew_compute = True )
     price = df_price['2023-12-29'].values.tolist()
 
-    #number of stocks to buy
+    # number of stocks to buy
     num_stocks_to_buy = 20
-
-    budget = 10000
-
-    model = portfolio_opt(tickers, num_stocks_to_buy, budget, returns, price, covariance, coskewness)
     
-    sampler = LeapHybridNLSampler()
-    results = sampler.sample(model, label = "portfolio_opt", time_limit=60) # Updates model state
+    # set budget for portfolio
+    budget = 1000000
 
-    # Wait for results if asynchronous
-    if hasattr(results, 'result'):
+    # for large data sets, I tried using the CQM code first without the coskew and then passing the results to the NL solver
+    CQM_on = False
+
+    if CQM_on == True:
+      stocks = CQM_Model.bin_variables(tickers)
+
+      #add integer variables for number of shares to buy for each stock
+      shares = CQM_Model.int_variables(tickers)
+
+      num_stocks_to_buy = 200
+      #build CQM
+      cqm = CQM_Model.build_cqm(stocks, shares, covariance, num_stocks_to_buy, budget, returns, price)
+
+      #run CQM on hybrid solver
+      sampleset = CQM_Model.sample_cqm(cqm)
+    
+      #process and print solution
+      print("\nPart 1 solution:\n")
+      df_firstpass = utilities.process_sampleset(sampleset, tickers)
+
+      tickers = df_firstpass['Stock'].astype(str).tolist()
+      df_firstpass = df_firstpass.rename(columns={'Stock':'Ticker'})
+      df_price, returns, covariance, coskewness = utilities.get_stock_info(2, df_firstpass, coskew_compute = True)
+      price = df_price['2023-12-29'].values.tolist()
+
+      #number of stocks to buy
+      num_stocks_to_buy = 20
+      model = portfolio_opt(tickers, num_stocks_to_buy, budget, returns, price, covariance, coskewness)
+      minimum_time = LeapHybridNLSampler.estimated_min_time_limit(model)
+      print("Minimum time = {minimum_time}")
+      sampler = LeapHybridNLSampler()
+      results = sampler.sample(model, label = "portfolio_opt", time_limit=60) # Updates model state
+      if hasattr(results, 'result'):
         job_result_object = results.result()
         print(f"Future resolved.")
-    else:
+      else:
         job_result_object = results
         print(f"Synchronous result received.")
+      #Process results 
+      process_nls_results(model, tickers)
+    else:
+      #build nonlinear model
+      model = portfolio_opt(tickers, num_stocks_to_buy, budget, returns, price, covariance, coskewness)
+    
+      sampler = LeapHybridNLSampler()
 
-    #Process results 
-    process_nls_results(model, tickers)
+      #sample results
+      results = sampler.sample(model, label = "portfolio_opt", time_limit=60) # Updates model state 
+
+      if hasattr(results, 'result'):
+        job_result_object = results.result()
+        print(f"Future resolved.")
+      else:
+        job_result_object = results
+        print(f"Synchronous result received.")
+      
+      #Process results 
+      process_nls_results(model, tickers)
+
+
+    

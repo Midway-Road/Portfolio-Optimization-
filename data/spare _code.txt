@@ -1,5 +1,0 @@
- # Penalty component - Penalize if a a stock that is not selected (stock variable = 0) has shares assigned (shares > 0)
-   # shares_obj = sum( shares[i] *(1 - stocks[i]) for i in range(len(stocks_names)))
-    # shares_obj = 20 - sum(stocks[i] for i in range(len(stocks_names))) 
-  # p = 1000 
-   # model.minimize(alpha * risk_obj + p * shares_obj - return_obj)

@@ -2,7 +2,7 @@ import csv
 from matplotlib import ticker
 import numpy as np
 import pandas as pd
-#Copied from D-Wave Systems portfolio optimization training project
+#Adapted from D-Wave Systems portfolio optimization training project
 
 # Prepare Stock data from the csv files
 def get_tickers(verbose=False):
@@ -13,14 +13,20 @@ def get_tickers(verbose=False):
         print(len(tickers))
     return tickers
 
-
-def get_stock_info(verbose=True):
+# Generate stock data
+def get_stock_info(pass_no = 1, df_firstpass = None, coskew_compute = False, verbose=True):
     # Read in stock returns and price information from CSV
     df_price = pd.read_csv('data/lastprice_data.csv')
     print(df_price.head())
 
     ############### calculate mean returns #############################
     df_dailyreturn = pd.read_csv('data/returns_data.csv', index_col='Date')
+
+    if pass_no == 2:
+      df_price = pd.merge(df_price, df_firstpass, on = ['Ticker'])
+      columnlist = df_firstpass['Ticker'].astype(str).tolist()
+      df_dailyreturn = df_dailyreturn[columnlist]
+
     avg_daily_returns = df_dailyreturn.mean(axis=0)
     annual_returns = avg_daily_returns * 252
     returns = list(annual_returns)
@@ -29,41 +35,44 @@ def get_stock_info(verbose=True):
     covariance = (df_dailyreturn.cov() * 252).values.tolist()
     
     ############ calculate coskew tensor ###############################
-    returns_array = df_dailyreturn.to_numpy()
-    print(returns_array)
-    # Standardize the returns: (R - mu) / sigma 
-    mu = np.mean(returns_array, axis=0)
-    print("MEAN RETURNS ARRAY")
-    print(mu)
-    sigma = np.std(returns_array, axis=0)
-    print("SIGMA ARRAY")  
-    print(sigma)
-    z_scores = (returns_array - mu) / sigma
+    if (len(annual_returns) <=5000) and (coskew_compute == True):
+      returns_array = df_dailyreturn.to_numpy(dtype='float32')
+      print(returns_array)
+      # Standardize the returns: (R - mu) / sigma 
+      mu = np.mean(returns_array, axis=0)
+      print("MEAN RETURNS ARRAY")
+      print(mu)
+      sigma = np.std(returns_array, axis=0)
+      print("SIGMA ARRAY")  
+      print(sigma)
+      z_scores = (returns_array - mu) / sigma
   
-    # Calculate the Coskewness Tensor 
-    # Using Einstein Summation:
-    # t is day, i, j, k are individual stocks
-    # Multiply z_i * z_j * z_k for every day and average. 
-    coskew_tensor = np.einsum('ti,tj,tk->ijk', z_scores, z_scores, z_scores) / returns_array.shape[0]
+      # Calculate the Coskewness Tensor 
+      # Using Einstein Summation:
+      # t is day, i, j, k are individual stocks
+      # Multiply z_i * z_j * z_k for every day and average. 
+      coskew_tensor = np.einsum('ti,tj,tk->ijk', z_scores, z_scores, z_scores) / returns_array.shape[0]
 
-    print(f"Tensor Shape: {coskew_tensor.shape}")
-    # Accessing S(X, Y, Z) for stocks 0, 1, and 2:
-    print(f"Coskew (0,1,2): {coskew_tensor[0, 1, 2]:.4f}")  
+      print(f"Tensor Shape: {coskew_tensor.shape}")
+      # Accessing S(X, Y, Z) for stocks 0, 1, and 2:
+      print(f"Coskew (0,1,2): {coskew_tensor[0, 1, 2]:.4f}")  
+    else:
+        coskew_tensor = None
 
     if verbose:
         print("Data Check")
         print(f"Length of Price Array: {len(df_price)}")
-        print("Monthly return(the first 5 lines):")
+        print("Return(the first 5 lines):")
         print(df_dailyreturn.head(5))
-        print("Average monthly return:")
-        print(f"Length of monthly returns: {len(returns)}")
+        print(f"Length of daily returns: {len(returns)}")
         #print(returns)
 
     return df_price, returns, covariance, coskew_tensor
 
 # Function to process samples and print the best feasible solution found
-def process_sampleset(sampleset, tickers):
+def process_sampleset(sampleset, tickers, df_price):
     """Read in sampleset returned from sample_cqm command and display solution."""
+    # used with CQM only
     # Find the first feasible solution
     first_run = True
     feasible = False
@@ -75,7 +84,7 @@ def process_sampleset(sampleset, tickers):
             feasible = True
             break
     print(best_sample)
-    # Print the solution as which stocks to buy
+
     print("Solution:\n")
     if not feasible:
         print("No feasible solution found.\n")
@@ -98,80 +107,23 @@ def process_sampleset(sampleset, tickers):
     # Convert to DataFrame 
     df_results = pd.DataFrame(portfolio_data)
     df_results = df_results[(df_results['Buy'] == 1) & (df_results['Shares'] > 0)]
-    print(df_results)
-
-    df_results.to_csv("portfolio_data.csv", index=False)
-
-
-
-
-
-
-
-
-
-
-    #print("Portfolio Results:")
-    #df_results = pd.DataFrame(list(best_sample.items()), columns=['Variable', 'Value'])
-    #df_results.to_csv("portfolio_data.csv", index=False)
     
-    #stock_list = []
-    #is_one_list = []
-    #shares_list = []
-    #no_of_shares = []
-
-    #i = 0
-    #for stk, shares in best_sample.items():
-      
-      #if i < len(stockcodes):
-       # stock_list.append(stk)
-       # is_one_list.append(shares)
-      #else:
-      #  shares_list.append(stk)
-      #  no_of_shares.append(shares)
-      #i+=1
-#    
-    #df_stocks = pd.DataFrame({
-    #'Stock': stock_list,
-    #'InPortfolio': is_one_list,
-    #})
-    #df_shares = pd.DataFrame({
-    #'Shares_Var': shares_list,
-    #'Shares_Number': no_of_shares
-    #})
-    #df_shares = df_shares["Shares_Var"].str[7:].astype(int) 
-    #df_shares.sort_values("Shares_Var", inplace=True)
-#    
-    #df_results1 = pd.concat([df_stocks, df_shares], axis=1)   
-    #print(df_results1.head())
-    #df_results2 = 
-    #df_results3 = df_results1[(df_results1['InPortfolio'] == 1) & (df_results1['Shares_Number'] > 0)]
-#    print(df_results3)
-
-
- #   print("\n")
+    # Write all data into file to be back tested using code in jupyter notebook
+    df_results = df_results[['Stock','Shares']]
+    df_results = df_results.rename(columns = {'Stock':'Ticker', 'Shares':'Weight'})
+    df_results = df_results.merge(df_price, on = 'Ticker')
+    df_results['Cost of Shares'] = df_results['Weight']*df_results['2023-12-29']
+    df_results = df_results.rename(columns = {'Ticker':'Stock'})
+    df_results.to_csv("portfolio_data_CQM.csv", index=False)
+    
+    return df_results
 
 
 
-      
-  #      if shares > 0 and best_sample[stk] > 0:  # Only show what you actually bought
-  #          stk_price = df.loc[df['Ticker'] == stk[2:], "2023-12-29"]
-  #          print(f"{stk[2:]}: {int(shares)} shares at price {stk_price.values[0]}")
-
-  #        for stk in stockcodes:
-        #    if best_sample[f's_{stk}'] == 1:
-        #        stk_price = df.loc[df['Ticker'] == stk, "2023-12-29"]
-         #       print(f"{stk} at price {stk_price.values[0]}")
 
 
-# Read the lastday's closing price from csv file, 
-    # and store them in the list, then convert it as numpy array
-    # price_read = []
-    # with open('data/lastday_closing_price.csv') as f:
-    #     reader = csv.reader(f)
-    #     for row in reader:
-    #         price_read.append(row)
-    # price = np.array(price_read[0],dtype=float)
 
-    # Compute the average monthly returns for each stock
-    # df_monthreturn = pd.read_csv("data/monthly_returns.csv", index_col='Date')
+
+
+
+  
