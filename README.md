@@ -22,12 +22,12 @@ The objective function configures the energy state of the annealer so that it re
 
 Portfolio optimization is mathematically modeled as a Quadratic Unconstrained Binary Optimization (QUBO) problem -  converting QUBO equations to Ising form requires only a simple linear transformation.
 ![EQ1](images/EQ1.png)
-Eq. 1 Quadratic Unconstrained Binary Optimization (QUBO) problem
+<center>Eq. 1 Quadratic Unconstrained Binary Optimization (QUBO) problem<\center>
 
 Eq. 1 shows an example QUBO minimization equation.  A solver would choose values for binary variables in the vector x such that the sum of all the terms is minimized.  The first term in the QUBO problem incorporates the strengths of the couplings between elements into the equation.  For example, if  Qij is highly negative, the system is incentivized to set  both xi and xj to 1.  The second term represents the cost or penalty for setting xi to 1.  If bi is high, the system is incentivized not to include xi.
 
 ![EQ2](images/EQ2.png)
-Eq. 2 Portfolio optimization QUBO
+<center>Eq. 2 Portfolio optimization QUBO</center>
 
 
 Eq. 2 shows an example  of a portfolio optimization QUBO.
