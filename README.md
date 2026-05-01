@@ -28,9 +28,8 @@ Portfolio optimization is mathematically modeled as a Quadratic Unconstrained Bi
 
 Eq. 1 shows an example QUBO minimization equation.  A solver would choose values for binary variables in the vector x such that the sum of all the terms is minimized.  The first term in the QUBO problem incorporates the strengths of the couplings between elements into the equation.  For example, if  Qij is highly negative, the system is incentivized to set  both xi and xj to 1.  The second term represents the cost or penalty for setting xi to 1.  If bi is high, the system is incentivized not to include xi.
 
-<div align="center"><img src = "images/EQ2.png" ></div> 
-<div align="center"><sub>Eq. 2 Portfolio optimization QUBO</sub></div>
-<br>
+$$\min H' = \alpha \left( \sum_{i=1}^n \sum_{j=1}^n \sigma_{ij} p_i x_i p_j x_j \right) - \left( \sum_{i=1}^n \bar{r}_i p_i x_i \right) + \lambda \left( \sum_{i=1}^n p_i x_i - B \right)^2$$
+$$\text{Eq. 2 Portfolio optimization QUBO}$$
 
 Eq. 2 shows an example  of a portfolio optimization QUBO.
 The variables are:
