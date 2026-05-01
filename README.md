@@ -43,30 +43,31 @@ The variables are:
            <tr><td>B = the budget - term is squared to force the solver to favor valid solutions</td></tr>
 </table>
 This equation requires the solver to find not only which assets in x should be included in the portfolio, but also how many shares of those assets are best.  To produce integer results for numbers of shares,  a binary expansion method must be used:
-<div align = "center"><img src ="images/EQ3.png"></div>
-<div align="center"><sub>Eq. 3 Binary Expansion of Integer</sub></div>
-<br>
+<br>  
 
+$$x_i = \sum_{b=0}^{k_i - 1} 2^b z_{ib}$$
+$$\text{Eq. 3 Binary Expansion of Integer}$$  
 
 A typical portfolio optimization problem is quadratic due to the covariance term of the objective function and has only linear constraints, no cardinality and continuous variables.  
 
-<div align = "center"><img src ="images/EQ3.png"></div>
-<div align="center"><sub>Covariance term of objective function</sub></div>
-<br>
+$$\alpha \left( \sum_{i=1}^n \sum_{j=1}^n \sigma_{ij} p_i x_i p_j x_j \right)$$
+$$\text{Covariance term of objective function}$$
+
            
 
-A large-scale problem of this type is reliably and efficiently solvable on a classical computer. 5
+A large-scale problem of this type is reliably and efficiently solvable on a classical computer.<sup>5<\sup> 
 Three challenging constraints are added to make the problem a more challenging Mixed Integer NonLinear Problem (MINLP) type and increase optimization complexity.   
 
-Constraints
+### Constraints
 
-Constraint 1: Cardinality
-Limiting the number of assets in a portfolio reduces transaction costs, tax reporting complexity, and management effort.  However, allowing only a certain number of stocks in the portfolio out of the universe under consideration imposes a cardinality constraint on the problem, which has been shown to make it NP-complete - as the number of assets increases, the number of possible combinations for the portfolio grows exponentially. 6
+**Constraint 1: Cardinality**  
+Limiting the number of assets in a portfolio reduces transaction costs, tax reporting complexity, and management effort.  However, allowing only a certain number of stocks in the portfolio out of the universe under consideration imposes a cardinality constraint on the problem, which has been shown to make it NP-complete - as the number of assets increases, the number of possible combinations for the portfolio grows exponentially. <sup>6<\sup>
 
-Constraint 2: Skew
+**Constraint 2: Skew**  
 The skew of a distribution is the amount to which it has a positive or negative tail.  More technically, it is a distribution's third standardized moment:
 
-Eq. 4  Skew Equation for a distribution, E: expected value,  X: variable  : mean, : std dev, 
+$$\mu_3 = E \left[ \frac{X - \mu}{\sigma} \right]^3$$
+$$\text{Eq. 4  Skew Equation for a distribution, E: expected value,  X: variable, } \mu \text{: mean, }\sigma\text{: std dev}$$
 
 A positive skew manifests as a significant tail on the right side, and a negative skew as a tail on the left.  In the case of assets such as stocks, investors consider a returns distribution with a positive skew desirable, as it indicates a tendency toward a greater number of days with nominal or even dramatic positive returns.  
 
@@ -76,16 +77,16 @@ Highly performing individual stocks often have positively skewed return distribu
 
 The N x N x N coskewness tensor is calculated using the formula:
 
+$$S(X,Y,Z) = \frac{E[(X - E[X])(Y - E[Y])(Z - E[Z])]}{\sigma_X \sigma_Y \sigma_Z}$$
+$$\text{Eq. 5  Coskew Equation, E: expected value,  X,Y,Z: variables, } \sigma \text{: std dev}$$ 
 
-Eq. 5  Coskew Equation, E: expected value,  X,Y,Z: variables  : mean, : std dev, 
 
 
-
-Constraint 3: Maximum number of shares
+**Constraint 3: Maximum number of shares**
 Constraining the maximum number of shares per stock puts a hard limit on the amount that can be invested in a single stock.
 
 
-Ocean SDK and D-Wave Models
+## Ocean SDK and D-Wave Models
 
 The D-Wave Ocean software development kit is an open source Python based tool set for developing quantum annealing optimization applications.  It is compatible with Python versions 3.10 or higher and can be installed on Linux, Windows, and Mac systems.  It is cloud accessible on GitHub or any environment that implements development containers.  Up to 2,000,000 variables and constraints are supported.
 
