@@ -34,17 +34,18 @@ Eq. 1 shows an example QUBO minimization equation.  A solver would choose values
 
 Eq. 2 shows an example  of a portfolio optimization QUBO.
 The variables are:
-α = risk aversion coefficient
-n = total number of stocks (or more broadly, assets)
-ri = average monthly percent return for stock i
-σ = covariance of returns of stocks i and j 
-pi = price of stock i
-xi = number of shares of stock i
-λ = penalty term coefficient
-B = the budget - term is squared to force the solver to favor valid solutions
-
+<table>
+           <tr><td>$\alpha$ = risk aversion coefficient</td></tr>
+           <tr><td>n = total number of stocks </td></tr>
+           <tr><td>$r_i$ = average monthly percent return for stock i</td></tr>
+           <tr><td>$\sigma$ = covariance of returns of stocks i and j </td></tr>
+           <tr><td>$p_i$ = price of stock i</td></tr>
+           <tr><td>$x_i$ = number of shares of stock i</td></tr>
+           <tr><td>$\lambda$ = penalty term coefficient</td></tr>
+           <tr><td>B = the budget - term is squared to force the solver to favor valid solutions</td></tr>
+</table>
 This equation requires the solver to find not only which assets in x should be included in the portfolio, but also how many shares of those assets are best.  To produce integer results for numbers of shares,  a binary expansion method must be used:
-
+<div align = "center"><img src = images/EQ3.png"
 Eq. 3 Binary Expansion of Integer
 
 A typical portfolio optimization problem is quadratic due to the covariance term of the objective function and has only linear constraints, no cardinality and continuous variables.  
