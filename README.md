@@ -45,8 +45,10 @@ The variables are:
            <tr><td>B = the budget - term is squared to force the solver to favor valid solutions</td></tr>
 </table>
 This equation requires the solver to find not only which assets in x should be included in the portfolio, but also how many shares of those assets are best.  To produce integer results for numbers of shares,  a binary expansion method must be used:
-<div align = "center"><img src = images/EQ3.png"
-Eq. 3 Binary Expansion of Integer
+<div align = "center"><img src = images/EQ3.png"></div>
+<div align="center"><sub>Eq. 3 Binary Expansion of Integer</sub></div>
+<br>
+
 
 A typical portfolio optimization problem is quadratic due to the covariance term of the objective function and has only linear constraints, no cardinality and continuous variables.  
 
