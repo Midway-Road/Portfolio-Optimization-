@@ -20,11 +20,10 @@ The model considers only the mean returns and variances of assets in its formula
 Quantum annealers are designed to solve combinatorial optimization problems like portfolio optimization.  They are physical implementations of Ising models, which mathematically express how elements of a complex system respond to the couplings that exist between them and the external forces that are exerted on them. 
 The objective function configures the energy state of the annealer so that it represents the parameters of the problem.  The annealer naturally minimizes its energy state to yield a combination of output values that correspond to an optimal solution.  Solutions are obtained by sampling low energy states at the end of the annealing process.  
 
-Portfolio optimization is mathematically modeled as a Quadratic Unconstrained Binary Optimization (QUBO) problem -  converting QUBO equations to Ising form requires only a simple linear transformation.
+Portfolio optimization is mathematically modeled as a Quadratic Unconstrained Binary Optimization (QUBO) problem -  converting QUBO equations to Ising form requires only a simple linear transformation.  
 
-<div align="center"><img src = "images/EQ1.png" width = "500" height = "125"></div> 
-<div align="center"><sub> Eq. 1 Quadratic Unconstrained Binary Optimization (QUBO) problem</sub></div>
-<br>
+$$\min_{x \in \{0,1\}^n} \left( \sum_{i=1}^n \sum_{j=1}^n Q_{ij} x_i x_j + \sum_{i=1}^n b_i x_i \right)$$
+$$\text{Eq. 1 Quadratic Unconstrained Binary Optimization (QUBO) problem}$$
 
 Eq. 1 shows an example QUBO minimization equation.  A solver would choose values for binary variables in the vector x such that the sum of all the terms is minimized.  The first term in the QUBO problem incorporates the strengths of the couplings between elements into the equation.  For example, if  Qij is highly negative, the system is incentivized to set  both xi and xj to 1.  The second term represents the cost or penalty for setting xi to 1.  If bi is high, the system is incentivized not to include xi.
 
